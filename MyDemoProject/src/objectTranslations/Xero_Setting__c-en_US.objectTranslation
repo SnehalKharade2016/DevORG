@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObjectTranslation xmlns="http://soap.sforce.com/2006/04/metadata">
+    <caseValues>
+        <value>Xero Setting</value>
+    </caseValues>
+    <caseValues>
+        <plural>true</plural>
+        <value>Xero Settings</value>
+    </caseValues>
+    <fields>
+        <label><!-- Consumer Key --></label>
+        <name>Consumer_Key__c</name>
+    </fields>
+    <fields>
+        <label><!-- Consumer Secret --></label>
+        <name>Consumer_Secret__c</name>
+    </fields>
+    <fields>
+        <label><!-- Endpoint --></label>
+        <name>Endpoint__c</name>
+    </fields>
+    <fields>
+        <label><!-- My Private Key --></label>
+        <name>My_Private_Key__c</name>
+    </fields>
+    <fields>
+        <label><!-- Private Key --></label>
+        <name>Private_Key__c</name>
+    </fields>
+    <startsWith>Consonant</startsWith>
+</CustomObjectTranslation>

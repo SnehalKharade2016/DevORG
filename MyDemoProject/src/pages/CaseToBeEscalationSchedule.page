@@ -1,0 +1,488 @@
+<apex:page controller="CaseToBeEscalationScheduleController" action="{!setComponentValues}" sidebar="false" showheader="false" id="schedulerPage">
+    <style>
+        .margin {
+            margin-left: 7px;
+        }        
+        .right {
+            margin-right: 100%;
+        }        
+        .boldText {
+            font-weight: bold;
+            font-size: 10;
+        }       
+        .width {
+            width: 100%;
+        }      
+        .valign{
+            vertical-align:top;
+        } 
+       #disablingDiv{      
+          display: none;
+          z-index:1001;            
+          position: fixed ;
+          top: 0%;
+          left: 0%;
+          width: 100%;
+          height: 130%;
+          /*make it white but fully transparent*/
+          background-color: #6D7B8D;
+          opacity:.20;
+          filter: alpha(opacity=20);
+        }  
+        #loadingImage{
+          top: 20px;           
+          left: 460px;     
+          z-index:1001;  
+          position:absolute;
+        }          
+    </style>
+    <script>
+        var weekday;
+        var length;
+        function checkVal(ctrVal) {
+            if (ctrVal == 'Weekly') {
+                document.getElementById('{!$Component.theFormId.thePageBlockId.weekDaysPanel}').style.display = 'inline';
+                document.getElementById('{!$Component.theFormId.thePageBlockId.monthPanelId}').style.display = 'none';              
+            }
+            if (ctrVal == 'Monthly') {
+                document.getElementById('{!$Component.theFormId.thePageBlockId.weekDaysPanel}').style.display = 'none';
+                document.getElementById('{!$Component.theFormId.thePageBlockId.monthPanelId}').style.display = 'inline';                
+            }   
+            if(ctrVal == 'Daily'){
+                document.getElementById('{!$Component.theFormId.thePageBlockId.weekDaysPanel}').style.display = 'none';
+                document.getElementById('{!$Component.theFormId.thePageBlockId.monthPanelId}').style.display = 'none'; 
+            }        
+        }       
+        function showPanel() {
+            document.getElementById('{!$Component.theFormId.thePageBlockId.monthPanelId}').style.display = 'inline';
+            unFreezeBackground();
+        }            
+        function unFreezeBackground(){
+            document.getElementById('disablingDiv').style.display='none';       
+        }  
+        function freezeBackground(){             
+            document.getElementById('disablingDiv').style.display='block';       
+        }  
+        /*
+		Parameters:
+		index: n'th occurrence of the specified day
+		day: daynumber - javascript way where sunday is 0 and is saturday is 6
+		month: javascript way which is 0-11 [optional - defaults to current]
+		year: Full year - four digits [optional - defaults to current]
+		*/
+        function getNthDayOfMonth(index,day,month,year){
+	  	    //Set to first day of month
+	  	    
+		    var date = new Date(year,month,1);		    		    
+		    
+		    //Find daynumber
+		    firstDay = date.getDay();		    
+		    while(date.getDay()!= day){      
+		        date.setDate(date.getDate()+1) ;
+		    }
+		    
+		    if(index == 2){
+		         date.setDate(date.getDate()+7);
+		         
+		    }
+		    else if(index == 3){
+		         date.setDate(date.getDate()+14);
+		    }
+		    else if(index == 4){
+		         date.setDate(date.getDate()+21);
+		    }
+		    else if(index == 5){
+		    	
+		         date.setDate(date.getDate()+28);
+		         if(date.getMonth()!== month){
+		             date = null;
+		         }
+		    }
+		    
+		    return date;
+        }     
+        function createSelectedWeekDayArray(){
+            //Create an array of week day and find length of array
+            weekday = new Array();
+            var isSunday = document.getElementById('{!$Component.theFormId.thePageBlockId.sundayCheck}');
+			var isMonday = document.getElementById('{!$Component.theFormId.thePageBlockId.mondayCheck}');
+			var isTuesday = document.getElementById('{!$Component.theFormId.thePageBlockId.tuesdayCheck}');
+			var isWednesday = document.getElementById('{!$Component.theFormId.thePageBlockId.wednesdayCheck}');
+			var isThursday = document.getElementById('{!$Component.theFormId.thePageBlockId.thursdayCheck}');
+			var isFriday = document.getElementById('{!$Component.theFormId.thePageBlockId.fridayCheck}');
+			var isSaturday = document.getElementById('{!$Component.theFormId.thePageBlockId.saturdayCheck}');			
+		    length = 0;
+			if(isSunday.checked){
+			    weekday[0] = "Sun";
+			    length++;		   
+			}
+			if(isMonday.checked){
+			    weekday[1] = "Mon";     
+			    length++;                            		    
+			}
+			if(isTuesday.checked){
+			    weekday[2] = "Tue";
+			    length++;
+			}
+			if(isWednesday.checked){
+			    weekday[3] = "Wed";	
+			    length++;		  
+			}
+			if(isThursday.checked){
+			    weekday[4] = "Thu";
+			    length++;			    
+			}
+			if(isFriday.checked){
+			    weekday[5] = "Fri";
+			    length++;			    
+			}
+			if(isSaturday.checked){
+			    weekday[6] = "Sat";
+			    length++;			    
+			}					
+        }
+        function validateParam(){
+            var frequency = document.getElementsByName('{!$Component.theFormId.thePageBlockId.frequencySelect}'); 
+            var startDate = document.getElementById('{!$Component.theFormId.thePageBlockId.startDate}').value;            
+            var endDate = document.getElementById('{!$Component.theFormId.thePageBlockId.endDate}').value;   
+            var preStartTime = document.getElementById('{!$Component.theFormId.thePageBlockId.pStartTimeId}').value; 
+            var monthDaySelect = document.getElementById('{!$Component.theFormId.thePageBlockId.monthDaySelectId}');               
+            var monthDayWeekIndex = document.getElementById('{!$Component.theFormId.thePageBlockId.monthDayWeekSelectId}');
+            var monthWeekDaySelect = document.getElementById('{!$Component.theFormId.thePageBlockId.monthWeekNameSelectId}');
+            
+            var monthDaySelectRadio = document.getElementById('schedulerPage:theFormId:thePageBlockId:monthDaySelectRadioId:0');                  
+            var monthWeekSelectRadio = document.getElementById('schedulerPage:theFormId:thePageBlockId:monthWeekSelectRadioId:0');
+                        
+            var selectedFrequencyVal;            			
+			for (var i = 0 ; i < frequency.length; i++) {
+			    if (frequency[i].checked) {			       
+			        selectedFrequencyVal = frequency[i].value;					        
+			        break;
+			    }
+			}			
+			var selectedMonthDay = monthDaySelect.options[monthDaySelect.selectedIndex].value;	
+			var selectedWeekIndex = monthDayWeekIndex.options[monthDayWeekIndex.selectedIndex].value;
+			var selectedWeekDayName = monthWeekDaySelect.options[monthWeekDaySelect.selectedIndex].value;
+											
+			var sDate = new Date(startDate);//start date of scheduler
+			var eDate = new Date(endDate); // end date of scheduler
+			var today = new Date();        // current date time
+			var eofStartDate = new Date(sDate.getFullYear(), sDate.getMonth() + 1, 0, 23, 59, 59); //end date start date month
+			var eofEndDate = new Date(eDate.getFullYear(), eDate.getMonth() + 1, 0, 23, 59, 59);  // end date of end date month 						
+			var timeDiff = Math.abs(eDate.getTime() - sDate.getTime());
+			var diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));  // Difference between start date and end date						
+			var copyToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());//Today Date
+			var isValidParam = 0;   
+			
+			createSelectedWeekDayArray();
+				
+			try {
+				if(sDate == 'Invalid Date' || eDate == 'Invalid Date' || sDate < copyToday || eDate < copyToday){			     
+				     isValidParam = 1;
+				     throw "Start date and End date can not be less than Today.";
+				     //isValidParam = 1;   
+				}
+				if(sDate.getTime() > eDate.getTime()){
+					  isValidParam = 1;
+					  throw "Start date can not be less than End date.";	
+					  //isValidParam = 1;   	
+				}
+				if(selectedFrequencyVal == 'Daily'){
+				     //Start date and end date are same and selected preffered time is less than current system time
+				     if(diffDays == 0 && today.getHours() >= preStartTime){
+				         isValidParam = 1;
+				         throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+				         //isValidParam = 1;   
+				     }
+				}
+				else if(selectedFrequencyVal == 'Weekly'){	
+				     if(length == 0){
+				           isValidParam = 1;
+				           throw "Please Select at least one weekDay.";
+				           //isValidParam = 1;
+				     }		     
+				     if(diffDays == 0){	//start date and end date are same
+				     	 if(length > 1 && weekday[sDate.getDay()] == undefined) {
+				     	 	isValidParam = 1;
+				            throw "This schedule will never run. Please modify the start date and end date.";
+				     	 }			        	       	         
+				         else if(weekday[sDate.getDay()] == undefined){ // selected week day does not match with the day of start date	
+				              isValidParam = 1;
+				              throw "This schedule will never run. Please modify the start date and end date.";
+				              //isValidParam = 1;
+				         }
+				         else if(today.getHours() >= preStartTime){	//selected preffered time is less than current system time		             
+				              isValidParam = 1;
+				              throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";           
+				              //isValidParam = 1;
+				         }
+				     }
+				     else if(diffDays < 7){ // Difference between start date and end date is less than 6 so need to check selected week day			           
+				          if(length == 1 && weekday[sDate.getDay()] != undefined && today.getHours()>= preStartTime){//only one week day is selected
+				               isValidParam = 1;
+				               throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+				              //isValidParam = 1;
+				          }
+				          else{ //More than one week day is selected so need to check if selected week days should fall between selected date range
+				              var check = 0;
+					          while(sDate <= eDate){
+					              if(weekday[sDate.getDay()] != undefined){
+					                   check = 1;
+					              }  
+					              sDate.setDate(sDate.getDate() + 1);  
+					          }
+					          if(check == 0){
+					              isValidParam = 1;
+					              throw "This schedule will never run. Please modify the start date and end date.";
+					              //isValidParam = 1;
+					          }
+				          }         
+				     }
+				}
+				else if(selectedFrequencyVal == 'Monthly'){
+				     if(monthDaySelectRadio.checked == true){
+				        // alert('start month---'+sDate.getUTCMonth()+'---end month----'+eDate.getUTCMonth());
+				         if(sDate.getYear() == eDate.getYear()){
+					         if(sDate.getMonth() == eDate.getMonth()){ // start date and end date fall in same month
+					              if(selectedMonthDay >= sDate.getDate() && selectedMonthDay <= eDate.getDate()){ //check if selected month day falls in date range			                 
+					                  if(sDate.getDate() == selectedMonthDay && today.getHours() >= preStartTime){ // selected day match with start date so need to check selected pref start time
+					                      isValidParam = 1;
+					                      throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+					                      //isValidParam = 1;
+					                  }
+					              }
+					              else{ 
+					                  isValidParam = 1;
+					                  throw "This schedule will never run. Please modify the start date and end date.";
+					                  //isValidParam = 1;
+					              }
+					         }
+					         else if(eDate.getMonth()- sDate.getMonth() < 2){ //start date and end date fall in different month
+					              if(selectedMonthDay >= sDate.getDate() && selectedMonthDay <= eofStartDate.getDate()){ // check if selected day falls between start date and end of start date month
+					                 if(sDate.getDate() == selectedMonthDay && today.getHours() >= preStartTime && selectedMonthDay > eDate.getDate()){
+					                      isValidParam = 1;
+					                      throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+					                      //isValidParam = 1;
+					                 }
+					              }
+					              else if(selectedMonthDay > eDate.getDate()){ // check if selected day is less than or equal of end date
+					                   isValidParam = 1;
+					                   throw "This schedule will never run. Please modify the start date and end date.";
+					                   //isValidParam = 1;
+					              }
+					         }
+				         }
+				         else if(sDate.getMonth() == 11 && eDate.getMonth() == 0){			               
+				              if(selectedMonthDay >= sDate.getDate() && selectedMonthDay <= eofStartDate.getDate()){ // check if selected day falls between start date and end of start date month
+					               if(sDate.getDate() == selectedMonthDay && today.getHours() >= preStartTime && selectedMonthDay > eDate.getDate()){
+					                   isValidParam = 1;
+					                   throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+					                   //isValidParam = 1;
+					               }
+				              }
+				              else if(selectedMonthDay > eDate.getDate()){ // check if selected day is less than or equal of end date
+				                   isValidParam = 1;
+				                   throw "This schedule will never run. Please modify the start date and end date.";
+				                   //isValidParam = 1;
+				              }
+				         }
+				     }
+				     else if(monthWeekSelectRadio.checked == true){		          
+				          selectedWeekDayName = selectedWeekDayName -1;			          
+				          var nthDate = getNthDayOfMonth(selectedWeekIndex,selectedWeekDayName,sDate.getMonth(),sDate.getFullYear());
+				          //alert(nthDate);
+				          if(sDate.getYear() == eDate.getYear()){
+				              if(sDate.getMonth() == eDate.getMonth()){ // start date and end date fall in same month
+				                  //alert(nthDate);
+				                  //alert(sDate.getDate());
+				                  //alert(eDate.getDate());
+				                  if(nthDate.getDate() >= sDate.getDate() && nthDate.getDate()<= eDate.getDate()){ //check if selected month day falls in date range			                 
+					                  if(sDate.getDate() == nthDate.getDate() && today.getHours() >= preStartTime){ // selected day match with start date so need to check selected pref start time
+					                      isValidParam = 1;
+					                      throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+					                      //isValidParam = 1;
+					                  }
+					              }
+					              else{ 
+					                  isValidParam = 1;
+					                  throw "This schedule will never run. Please modify the start date and end date.";
+					                  //isValidParam = 1;
+					              }
+				              }
+				              else if(eDate.getMonth()- sDate.getMonth() < 2){ //start date and end date fall in different month
+					              if(nthDate.getDate() >= sDate.getDate() && nthDate.getDate() <= eofStartDate.getDate()){ // check if selected day falls between start date and end of start date month
+					                 if(sDate.getDate() == nthDate.getDate() && today.getHours() >= preStartTime && nthDate.getDate() > eDate.getDate()){
+					                      isValidParam = 1;
+					                      throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+					                      //isValidParam = 1;
+					                 }
+					              }
+					              else if(nthDate.getDate() > eDate.getDate()){ //check if selected day is less than or equal of end date
+					                   isValidParam = 1;
+					                   throw "This schedule will never run. Please modify the start date and end date.";
+					                   //isValidParam = 1; 
+					              }
+					          }   
+				          }
+				          else if(sDate.getMonth() == 11 && eDate.getMonth() == 0){			               
+				              if(nthDate.getDate() >= sDate.getDate() && nthDate.getDate() <= eofStartDate.getDate()){ // check if selected day falls between start date and end of start date month
+					               if(sDate.getDate() == nthDate.getDate() && today.getHours() >= preStartTime && nthDate.getDate() > eDate.getDate()){
+					                   isValidParam = 1;
+					                   throw "This schedule will never run. Please modify the start date and end date or Preferred Start Time.";
+					                   //isValidParam = 1;
+					               }
+				              }
+				              else if(nthDate.getDate() > eDate.getDate()){ //check if selected day is less than or equal of end date
+				              	   isValidParam = 1;
+				                   throw "This schedule will never run. Please modify the start date and end date.";
+				                   
+				              }
+				         }
+				     }
+				}
+			}
+			catch(Err) {
+				
+				alert(Err);
+				
+			}
+			if(isValidParam == 0) {
+			    freezeBackground();
+        		ScheduleReportForFuture();
+        		
+			}	 		
+        }           
+    </script>    
+    <apex:form id="theFormId">
+    <div id="disablingDiv" ></div>   
+        <div id="loadingImage">              
+          <apex:actionStatus id="WaitingStatus">    
+              <apex:facet name="start">
+                <img src="/img/loading.gif" />&nbsp;Please wait...
+              </apex:facet>
+          </apex:actionStatus>
+         </div>         
+        <apex:pageblock id="thePageBlockId" title="Report Scheduler" rendered="{!isSchedulerBlock}">
+            <apex:panelGrid columns="3" id="theGridId" border="0" columnClasses="valign">                
+                <apex:outputPanel id="thePanelId2" layout="block">
+                    <table cellpadding="3" border = "0" cellspacing="3" style= "border: 1px solid black;" id="theTableId1">
+                        <tr>
+                            <td align="right"><b><span style="color:red">*</span>&nbsp;
+                            <apex:outputLabel value="Frequecy" for="theRadioId" /></b>
+                            </td>
+                            <td align="left"><b>
+                               <apex:selectRadio value="{!selectedFrequencyValue}" onclick="checkVal(this.value)" id="frequencySelect">
+                                    <apex:selectOptions value="{!selectedOptions}" id="frequencySelectRadio" />
+                               </apex:selectRadio></b>                                
+                            </td>
+                        </tr>                                             
+                        <tr>
+                            <td align="right"><b><span style="color:red">*</span></b>
+                            <apex:outputLabel value="Start" for="startDate" styleClass="margin" /></td>
+                            <td align="left"><apex:inputField id="startDate" value="{!caseObj.From_Date__c}" /></td>
+                        </tr>
+                        <tr>
+                            <td align="right"><b><span style="color:red">*</span></b>
+                            <apex:outputLabel value="End" for="endDate" styleClass="margin" /></td>
+                            <td align="left"><apex:inputField id="endDate" value="{!caseObj.To_Date__c}" /></td>
+                        </tr>
+                        <tr>
+                            <td align="right"><apex:outputLabel value="Preferred Start Time" for="pStartTimeId"/></td>
+                            <td align="left"> 
+                                <apex:selectList id="pStartTimeId" value="{!strPrefStartTime}" size="1"> 
+                                    <apex:selectOptions value="{!lstPrefStartTime}"/>
+                                </apex:selectList>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="right" style="text-wrap:suppress;"><b> <span style="color:red">*</span></b>&nbsp;
+                            <apex:outputLabel value="Email Report To" for="textStartId3"/><br/>
+                            (Press 'Enter' to <br/>specify next email id)
+                            </td> 
+                            <td align="left" > <apex:inputTextarea id="emailTextAreaId" value="{!strEmailTo}" rows="5" cols="40"/> </td>
+                        </tr>
+
+                    </table>
+                </apex:outputPanel>
+                <apex:outputPanel id="weekDaysPanel" layout="block" style="display:none;">
+                     <table cellpadding="3" cellspacing="3" style= "border: 1px solid black;">
+                          <tr>
+                               <th><apex:outputLabel value=" Recurs every week on "/></th>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="sundayCheck" value="{!blnIsSunday}" /> <apex:outputLabel value="{!strSunday}" /></td>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="mondayCheck" value="{!blnIsMonday}" /> <apex:outputLabel value="{!strMonday}" /></td>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="tuesdayCheck" value="{!blnIsTuesday}" /> <apex:outputLabel value="{!strTuesday}" /></td>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="wednesdayCheck" value="{!blnIsWednesday}" /> <apex:outputLabel value="{!strWednessday}" /></td>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="thursdayCheck" value="{!blnIsThursday}" /> <apex:outputLabel value="{!strThursday}" /></td>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="fridayCheck" value="{!blnIsFriday}" /> <apex:outputLabel value="{!strFriday}" /></td>
+                          </tr>
+                          <tr>
+                               <td><apex:inputCheckbox id="saturdayCheck" value="{!blnIsSaturday}" /> <apex:outputLabel value="{!strSaturday}" /></td>
+                          </tr>
+                      </table>                    
+                </apex:outputPanel>   
+                <apex:outputPanel id="monthPanelId" style="display:none;">
+                       <table cellpadding="3" cellspacing = "3" style = "border: 1px solid black;">
+                           <tr>
+                                <td>
+                                     <apex:selectRadio value="{!selectedValueforMonthDay}" id="monthDaySelectRadioId">
+			                               <apex:actionSupport event="onchange" onSubmit="freezeBackground();" action="{!disableMonthDay}" reRender="theFormId" status="WaitingStatus"  oncomplete="showPanel();"/>
+			                               <apex:selectOption itemValue="MonthDayValue" itemLabel="On"/>
+			                         </apex:selectRadio>    
+                                </td>
+                                <td colspan = "3">
+                                      <apex:selectList multiselect="false" size="1" id="monthDaySelectId" disabled="{!isDisabledMonthDay}" value="{!strDayValue}" >
+				                           <apex:selectOptions value="{!selectListDayValue}" /> 
+				                      </apex:selectList>
+				                      <apex:outputLabel value="of every month" for="itemId" styleclass="margin"/>   				                        
+                                </td>
+                            </tr>
+                            <tr>    
+                                <td>
+                                     <apex:selectRadio value="{!selectedValueForMonthWeek}" id="monthWeekSelectRadioId">
+			                               <apex:actionSupport onSubmit="freezeBackground();" event="onchange" action="{!disableWeekDay}" reRender="theFormId" status="WaitingStatus" oncomplete="showPanel();"/>
+			                               <apex:selectOption itemValue="MonthWeekValue" itemLabel="On"/>
+			                         </apex:selectRadio>
+                                </td>
+                                <td>
+                                     <apex:selectList multiselect="false" size="1" disabled="{!isDisabledWeekDay}" value="{!strMonthDay}" id="monthDayWeekSelectId">
+			                               <apex:selectOptions value="{!lstMonthDays}"/>
+			                         </apex:selectList> 
+                                </td>
+                                <td>
+                                     <apex:selectList value="{!strMonthWeek}" size="1" id="monthWeekNameSelectId" disabled="{!isDisabledWeekDay}">
+				                           <apex:selectOptions value="{!lstMonthWeek}" />
+				                     </apex:selectList>      
+                                </td>
+                                <td>
+                                     <apex:outputLabel value=" of every month " for="monthWeekNameSelectId" styleclass="margin"/> 
+                                </td>                             
+                           </tr>
+                       </table>
+                </apex:outputPanel>                                   
+           </apex:panelGrid>       
+           <p align = "Left"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<!--                  <apex:commandButton value="Schedule" action="{!scheduleReport}" onClick="freezeBackground();" status="WaitingStatus" oncomplete="unFreezeBackground();checkVal('{!selectedFrequencyValue}');" rerender="theFormId"/>                                          -->
+                <input type= "button" class = "btn" value = "Schedule" onClick = "validateParam();" />
+                &nbsp;&nbsp;&nbsp;&nbsp;               
+                <input type = "button" class = "btn" value = "Close" onClick = "javascript:window.close();" />
+           </p>
+       </apex:pageblock>
+      <apex:pageMessages />
+      <apex:actionFunction action="{!scheduleReport}" name="ScheduleReportForFuture" rerender="theFormId" oncomplete="unFreezeBackground();checkVal(frequency.value);">
+        
+    </apex:actionFunction>
+    </apex:form>
+</apex:page>
