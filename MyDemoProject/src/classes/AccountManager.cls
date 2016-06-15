@@ -10,6 +10,8 @@ global with sharing class AccountManager {
         Account result =  [Select a.Name, a.Id, (Select Id, Name From Contacts) From Account a where a.Id =:accountId];
         system.debug('This is for git commit------------------');
         system.debug('This is for git commit------------------');
+        system.debug('This is for git commit------------------');
         return result;
+        
     }  
 }
